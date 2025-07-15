@@ -1,17 +1,12 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
-const { GoogleSpreadsheet } = require('google-spreadsheet');
 const app = express();
 
 // LINE Bot Configuration
 const config = {
-  channelAccessToken: 'YOUR_CHANNEL_ACCESS_TOKEN',
-  channelSecret: 'YOUR_CHANNEL_SECRET'
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
 };
-
-// Google Sheets Configuration
-const SHEET_ID = 'YOUR_GOOGLE_SHEET_ID';
-const doc = new GoogleSpreadsheet(SHEET_ID);
 
 // Create LINE SDK client
 const client = new line.Client(config);
@@ -71,6 +66,11 @@ const problemTypes = {
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.send('🤖 Claw Machine Support Bot is running!');
+});
 
 // Webhook endpoint
 app.post('/webhook', line.middleware(config), (req, res) => {
@@ -374,10 +374,21 @@ async function handleAccount(userId, message, session) {
   session.data.accountName = parts[2].trim();
   session.data.timestamp = new Date().toISOString();
   
-  // Save to Google Sheets
-  await saveToGoogleSheets(session.data);
+  // แสดงข้อมูลที่เก็บได้ใน console
+  console.log('=== ข้อมูลลูกค้าใหม่ ===');
+  console.log('เวลา:', session.data.timestamp);
+  console.log('ปัญหา:', session.data.problemName);
+  console.log('หมายเลขตู้:', session.data.machineNumber);
+  console.log('สถานที่:', session.data.location);
+  console.log('ชื่อลูกค้า:', session.data.customerName);
+  console.log('เบอร์โทร:', session.data.customerPhone);
+  console.log('จำนวนเงิน:', session.data.lostAmount);
+  console.log('ธนาคาร:', session.data.bankName);
+  console.log('เลขบัญชี:', session.data.accountNumber);
+  console.log('ชื่อบัญชี:', session.data.accountName);
+  console.log('========================');
   
-  // Send to admin (you can implement LINE notification here)
+  // Send to admin (แสดงข้อมูลสำหรับแอดมิน)
   await notifyAdmin(session.data);
   
   // Reset session
@@ -399,38 +410,7 @@ async function handleAccount(userId, message, session) {
   };
 }
 
-// Save to Google Sheets
-async function saveToGoogleSheets(data) {
-  try {
-    await doc.useServiceAccountAuth({
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    });
-    
-    await doc.loadInfo();
-    const sheet = doc.sheetsByIndex[0];
-    
-    await sheet.addRow({
-      timestamp: data.timestamp,
-      problemType: data.problemName,
-      machineNumber: data.machineNumber,
-      location: data.location,
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      lostAmount: data.lostAmount,
-      bankName: data.bankName,
-      accountNumber: data.accountNumber,
-      accountName: data.accountName,
-      status: 'รอดำเนินการ'
-    });
-    
-    console.log('Data saved to Google Sheets');
-  } catch (error) {
-    console.error('Error saving to Google Sheets:', error);
-  }
-}
-
-// Notify admin
+// Notify admin (แสดงข้อมูลใน console แทน)
 async function notifyAdmin(data) {
   const adminMessage = `🚨 แจ้งเตือนปัญหาตู้คีบใหม่\n\n` +
                       `📅 วันที่: ${new Date(data.timestamp).toLocaleString('th-TH')}\n` +
@@ -445,24 +425,15 @@ async function notifyAdmin(data) {
                       `📝 ชื่อบัญชี: ${data.accountName}\n\n` +
                       `⚡ ต้องโอนเงินคืน + ตุ๊กตาฟรี 1 ตัว`;
   
-  // Send to admin LINE (replace with actual admin user ID)
-  const adminUserId = 'ADMIN_USER_ID';
-  
-  try {
-    await client.pushMessage(adminUserId, {
-      type: 'text',
-      text: adminMessage
-    });
-    console.log('Admin notification sent');
-  } catch (error) {
-    console.error('Error sending admin notification:', error);
-  }
+  console.log('=== แจ้งเตือนแอดมิน ===');
+  console.log(adminMessage);
+  console.log('=====================');
 }
 
 // Start server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`🤖 Claw Machine Support Bot running on port ${port}`);
 });
 
 module.exports = app;
