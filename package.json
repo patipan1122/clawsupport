@@ -1,0 +1,14 @@
+{
+  "name": "claw-machine-bot",
+  "version": "1.0.0",
+  "description": "LINE Bot for Claw Machine Support",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@line/bot-sdk": "^7.5.2",
+    "google-spreadsheet": "^3.3.0"
+  }
+}
