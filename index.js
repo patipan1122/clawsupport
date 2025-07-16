@@ -5,7 +5,8 @@ const app = express();
 // Configuration
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  googleAppsScriptURL: process.env.GOOGLE_APPS_SCRIPT_URL
 };
 
 // Middleware
@@ -63,6 +64,38 @@ const problemTypes = {
     ]
   }
 };
+
+// Save data to Google Sheets via Apps Script
+async function saveToGoogleSheets(data) {
+  if (!config.googleAppsScriptURL) {
+    console.log('Google Apps Script URL not configured');
+    return false;
+  }
+
+  try {
+    console.log('Saving data to Google Sheets:', data);
+    
+    const response = await fetch(config.googleAppsScriptURL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Data saved to Google Sheets successfully:', result);
+      return true;
+    } else {
+      console.error('❌ Failed to save to Google Sheets:', response.status);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error saving to Google Sheets:', error);
+    return false;
+  }
+}
 
 // Verify LINE signature
 function verifySignature(body, signature) {
@@ -347,7 +380,7 @@ async function handleAccount(userId, message, session) {
   session.data.accountName = parts[2].trim();
   session.data.timestamp = new Date().toISOString();
   
-  // Log customer data
+  // Log customer data to console
   console.log('=== ข้อมูลลูกค้าใหม่ ===');
   console.log('เวลา:', session.data.timestamp);
   console.log('ปัญหา:', session.data.problemName);
@@ -361,14 +394,24 @@ async function handleAccount(userId, message, session) {
   console.log('ชื่อบัญชี:', session.data.accountName);
   console.log('========================');
   
+  // Save to Google Sheets
+  const saved = await saveToGoogleSheets(session.data);
+  
   // Reset session
   session.step = 'start';
   session.data = {};
   
-  return {
-    type: 'text',
-    text: '🎉 ข้อมูลครบถ้วนแล้ว!\n\n✅ ข้อมูลได้ถูกส่งไปยังแอดมินเรียบร้อย\n💰 จะดำเนินการโอนเงินคืน + ตุ๊กตาฟรี 1 ตัว\n⏰ ภายใน 24 ชั่วโมง\n\nขอบคุณที่ใช้บริการ! 🙏\n\nพิมพ์ "เริ่มใหม่" เพื่อใช้บริการอีกครั้ง'
-  };
+  if (saved) {
+    return {
+      type: 'text',
+      text: '🎉 ข้อมูลครบถ้วนแล้ว!\n\n✅ ข้อมูลได้ถูกบันทึกและส่งไปยังแอดมินเรียบร้อย\n💰 จะดำเนินการโอนเงินคืน + ตุ๊กตาฟรี 1 ตัว\n⏰ ภายใน 24 ชั่วโมง\n\nขอบคุณที่ใช้บริการ! 🙏\n\nพิมพ์ "เริ่มใหม่" เพื่อใช้บริการอีกครั้ง'
+    };
+  } else {
+    return {
+      type: 'text',
+      text: '⚠️ ข้อมูลได้ถูกรับไว้แล้ว แต่การบันทึกในระบบมีปัญหา\n\n✅ ข้อมูลได้ถูกส่งไปยังแอดมินแล้ว\n💰 จะดำเนินการโอนเงินคืน + ตุ๊กตาฟรี 1 ตัว\n⏰ ภายใน 24 ชั่วโมง\n\nขอบคุณที่ใช้บริการ! 🙏\n\nพิมพ์ "เริ่มใหม่" เพื่อใช้บริการอีกครั้ง'
+    };
+  }
 }
 
 // Start server
